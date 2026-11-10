@@ -498,18 +498,27 @@ function linkRolesToOverview(){
   const recogFirstIndex = {};
   recogKeys.forEach(k => { const f = firstTok(k); (recogFirstIndex[f] = recogFirstIndex[f] || []).push(k); });
 
+  // Pass 1: exact full-name matches claim their Roles entry first.
+  const claimed = new Set();
   overviewMembers.forEach(m => {
     const exact = exactIndex[normName(m.name)];
-    if (exact) { m.rolesKey = exact; }
-    else {
-      const candidates = firstIndex[firstTok(m.name)] || [];
-      if (candidates.length === 1) { m.rolesKey = candidates[0]; }
-      else if (candidates.length > 1) {
-        m.rolesKey = candidates[0];
-        dlog(`Name match ambiguous for "${m.name}": Roles sheet has [${candidates.join(', ')}] sharing that first name — used "${candidates[0]}". Use full names consistently in both sheets to fix.`);
-      } else { m.rolesKey = null; }
+    m.rolesKey = exact && !claimed.has(exact) ? exact : null;
+    if (m.rolesKey) claimed.add(m.rolesKey);
+  });
+  // Pass 2: first-name fallback, only onto Roles entries nobody has claimed yet.
+  overviewMembers.forEach(m => {
+    if (m.rolesKey) return;
+    const candidates = (firstIndex[firstTok(m.name)] || []).filter(k => !claimed.has(k));
+    if (candidates.length >= 1) {
+      m.rolesKey = candidates[0];
+      claimed.add(m.rolesKey);
+      if (candidates.length > 1) dlog(`Name match ambiguous for "${m.name}": Roles sheet has [${candidates.join(', ')}] sharing that first name — used "${candidates[0]}". Use full names consistently in both sheets to fix.`);
     }
+  });
+  const unmatched = rolesKeys.filter(k => !claimed.has(k));
+  if (unmatched.length) dlog(`Names in Roles sheet with no match in Overview (hidden from leaderboard): ${unmatched.join(', ')}`);
 
+  overviewMembers.forEach(m => {
     const recogExact = recogExactIndex[normName(m.name)];
     let recogKey = recogExact || null;
     if (!recogKey) {
@@ -523,19 +532,23 @@ function linkRolesToOverview(){
 // ---------- render: leaderboard ----------
 function renderLeaderboard(filter=''){
   const el = document.getElementById('lbList');
-  const names = Object.keys(memberStats).sort((a,b) => memberStats[b].total - memberStats[a].total || a.localeCompare(b));
-  const filtered = names.filter(n => n.toLowerCase().includes(filter.toLowerCase()));
+  // Only members who exist in the Overview sheet (the Member Growth list) appear here.
+  const entries = overviewMembers
+    .filter(m => m.rolesKey && memberStats[m.rolesKey])
+    .map(m => ({name: m.name, s: memberStats[m.rolesKey]}))
+    .sort((a,b) => b.s.total - a.s.total || a.name.localeCompare(b.name));
+  const filtered = entries.filter(e => e.name.toLowerCase().includes(filter.toLowerCase()));
 
   document.getElementById('lbStats').innerHTML = `
-    <div class="stat-card"><div class="num mono">${names.length}</div><div class="label">Members with roles</div></div>
+    <div class="stat-card"><div class="num mono">${entries.length}</div><div class="label">Members with roles</div></div>
     <div class="stat-card"><div class="num mono">${meetingParticipation.length}</div><div class="label">Meetings logged</div></div>
-    <div class="stat-card"><div class="num mono">${meetingParticipation.reduce((s,m)=>s+m.filled,0)}</div><div class="label">Total roles filled</div></div>
+    <div class="stat-card"><div class="num mono">${entries.reduce((sum,e)=>sum+e.s.total,0)}</div><div class="label">Total roles filled</div></div>
   `;
 
   if (!filtered.length){ el.innerHTML = '<div class="empty">No members match that search.</div>'; return; }
 
-  el.innerHTML = filtered.map((name, idx) => {
-    const s = memberStats[name];
+  el.innerHTML = filtered.map((e, idx) => {
+    const name = e.name, s = e.s;
     const rankClass = idx===0?'r1':idx===1?'r2':idx===2?'r3':'';
     const chips = roleDisplayOrder.filter(r => s.byRole[r]).map(r => `<span class="chip">${r} × ${s.byRole[r]}</span>`).join('');
     const insts = s.instances.map(i => `<span class="inst">M${i.meeting} · ${i.role}</span>`).join('');
