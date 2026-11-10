@@ -241,7 +241,7 @@
 
 </main>
 
-<footer>Synced directly from the club's Google Sheets · data updates automatically every 45s, or on demand</footer>
+<footer>Synced directly from the club's Google Sheets · data updates automatically every 45s, or on demand · <span class="mono">build r15</span></footer>
 
 <script>
 const ROLES_SHEET_ID = '1aPeS9HVxvYbOxB6bQMK-YAIrXHClEUUAAVxD-g24tKI';
@@ -313,7 +313,7 @@ function parseCSV(text){
 }
 async function loadSheetCSV(id){
   dlog(`CSV fetch ${id}: requesting…`);
-  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_TAB)}&_=${Date.now()}`;
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=0&sheet=${encodeURIComponent(SHEET_TAB)}&_=${Date.now()}`;
   const res = await fetch(url, {cache:'no-store'});
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const text = await res.text();
@@ -352,16 +352,26 @@ async function loadSheetRobust(id){
 // one is picked up automatically on the next sync, no code changes needed.
 const FRIENDLY_LABELS = {
   'TMOD':'TMOD','TIMER':'Timer','AH-COUNTER':'Ah-Counter','GRAMMARIAN':'Grammarian',
-  'LISTENER':'Listener','RANDOM MASTER':'Random Master','TTM':'Table Topics Master','GE':'General Evaluator'
+  'LISTENER':'Listener','RANDOM MASTER':'Random Master','TTM':'Table Topics Master','GE':'General Evaluator','TTE':'TTE'
 };
 function titleCase(s){ return s.replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()); }
 
 let ROLE_COLS = [];      // built dynamically — see buildRoleSchema()
-let SPECIAL_COL = null;  // built dynamically — see buildRoleSchema()
+let SPECIAL_COLS = [];   // recognition columns (Special Role / MOT), built dynamically
 
+// Locate the header rows by content (the row containing "TMOD" holds the role labels, the
+// row above it the group names) rather than assuming they're rows 1 and 2 — different load
+// methods return different numbers of header rows, which used to shift every meeting by one.
+function findHeaderRowIndex(rows){
+  let idx = rows.findIndex(r => (r || []).some(c => /^TMOD$/i.test((c || '').trim())));
+  if (idx < 0) idx = rows.findIndex(r => (r || []).some(c => /\bTMOD$/i.test((c || '').trim()))); // e.g. merged labels
+  if (idx < 0) { dlog('WARNING: could not find the header row containing TMOD — assuming row 2. Check the Roles sheet headers.'); return 1; }
+  return idx;
+}
 function buildRoleSchema(rows){
-  const groupRow = rows[0] || [];
-  const labelRow = rows[1] || [];
+  const hdr = findHeaderRowIndex(rows);
+  const labelRow = rows[hdr] || [];
+  const groupRow = hdr > 0 ? (rows[hdr-1] || []) : [];
   const maxCols = Math.max(groupRow.length, labelRow.length);
   // Merged header cells (e.g. "SPEAKERS" spanning S1–S4) only carry text in their first
   // cell once exported — forward-fill the blanks so every column knows its group.
@@ -373,13 +383,14 @@ function buildRoleSchema(rows){
     groups[i] = currentGroup;
   }
   const roleCols = [];
-  let specialCol = null;
+  const specialCols = [];
   for (let i=1;i<maxCols;i++){
     const rawLabel = (labelRow[i]||'').trim();
     const ownGroupCell = (groupRow[i]||'').trim(); // text written directly on THIS column in row 1 (not inherited from a merge)
     const group = groups[i] || '';
-    if (/special/i.test(group) || /special/i.test(rawLabel)){
-      if (specialCol === null) specialCol = i;
+    // Recognition columns ("Special Role", "MOT") hold awards, not meeting roles — keep them out of role counts.
+    if (/special/i.test(group) || /special/i.test(rawLabel) || /^MOT$/i.test(rawLabel || ownGroupCell)){
+      specialCols.push({i, tag: (rawLabel || ownGroupCell || 'Special').toUpperCase()});
       continue;
     }
     // Prefer the row-2 label. If it's blank but this exact column has its own row-1 text
@@ -393,8 +404,8 @@ function buildRoleSchema(rows){
     else roleName = FRIENDLY_LABELS[effectiveLabel.toUpperCase()] || titleCase(effectiveLabel);
     roleCols.push({i, key:effectiveLabel, label:roleName, group, roleName});
   }
-  dlog(`Schema detected: ${roleCols.length} role columns [${roleCols.map(r=>r.roleName).join(', ')}]${specialCol!==null ? `, Special Role at col ${specialCol}` : ', no Special Role column found'}`);
-  return {roleCols, specialCol};
+  dlog(`Schema detected: ${roleCols.length} role columns [${roleCols.map(r=>r.roleName).join(', ')}]${specialCols.length ? `, recognition columns: ${specialCols.map(c=>c.tag+'@'+c.i).join(', ')}` : ', no recognition column found'}`);
+  return {roleCols, specialCols};
 }
 // Chip display order — the order roles first appear left-to-right in the sheet, deduplicated.
 function roleOrderFrom(roleCols){
@@ -422,10 +433,11 @@ function computeRoles(){
 
   const schema = buildRoleSchema(rolesRows);
   ROLE_COLS = schema.roleCols;
-  SPECIAL_COL = schema.specialCol;
+  SPECIAL_COLS = schema.specialCols;
   roleDisplayOrder = roleOrderFrom(ROLE_COLS);
 
-  const dataRows = rolesRows.slice(2); // skip 2 header rows
+  const dataRows = rolesRows.slice(findHeaderRowIndex(rolesRows) + 1)
+    .filter(r => /^\d+(\.\d+)?$/.test((r[0] || '').trim())); // only real meeting rows
   for (const r of dataRows){
     const meetingNo = r[0];
     if (isBlank(meetingNo)) continue;
@@ -440,26 +452,29 @@ function computeRoles(){
       memberStats[name].byRole[rc.roleName] = (memberStats[name].byRole[rc.roleName] || 0) + 1;
       memberStats[name].instances.push({meeting:meetingNo, role:rc.label});
     }
-    meetingParticipation.push({meeting:meetingNo, filled, total:ROLE_COLS.length});
+    if (filled > 0) meetingParticipation.push({meeting:meetingNo, filled, total:ROLE_COLS.length});
 
-    // Special Role column, e.g. "MOT-Bharat" — a recognition, not a functional meeting role,
-    // so it's tracked separately and never counted toward role totals.
-    const spec = SPECIAL_COL !== null ? r[SPECIAL_COL] : '';
-    if (!isBlank(spec) && spec.includes('-')){
-      const [tag, ...rest] = spec.split('-');
-      const person = rest.join('-').trim();
-      if (person){
-        if (!recognitions[person]) recognitions[person] = [];
-        recognitions[person].push({meeting: meetingNo, tag: tag.trim()});
-      }
+    // Recognition columns (e.g. "Special Role" holding "MOT-Bharat", or a column headed MOT holding
+    // "Bharat") — awards, tracked separately and never counted toward role totals.
+    for (const sc of SPECIAL_COLS){
+      const spec = r[sc.i];
+      if (isBlank(spec)) continue;
+      const m = spec.match(/^([A-Za-z]{2,8})\s*-\s*(.+)$/);
+      const tag = m ? m[1].toUpperCase() : sc.tag;
+      const person = (m ? m[2] : spec).trim();
+      if (!person) continue;
+      if (!recognitions[person]) recognitions[person] = [];
+      recognitions[person].push({meeting: meetingNo, tag});
     }
   }
+  dlog(`Meetings counted (${meetingParticipation.length}): ${meetingParticipation.map(m=>m.meeting).join(', ')}`);
   dlog(`Parsed ${dataRows.filter(r=>!isBlank(r[0])).length} meeting rows. Members with at least one role: ${Object.keys(memberStats).length}. Recognitions: ${Object.keys(recognitions).length}.`);
 }
 
 function computeOverview(){
   overviewMembers = [];
-  const dataRows = overviewRows.slice(1);
+  // Member rows are the ones with a numeric S.No — independent of how many header rows a load method returns.
+  const dataRows = overviewRows.filter(r => /^\d+(\.\d+)?$/.test((r[0] || '').trim()));
   for (const r of dataRows){
     const name = r[1];
     if (isBlank(name)) continue;
@@ -742,7 +757,7 @@ function setStatus(state, msg){
 
 async function loadAll(){
   setStatus('syncing', 'Syncing…');
-  dlog('--- refresh started ---');
+  dlog('--- refresh started --- (build r15, page: ' + location.host + ')');
 
   let rr, or_;
   try {
