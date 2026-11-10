@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DTM Club Dashboard — Jul–Dec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12161D;
+    --surface:#1B212B;
+    --surface2:#222A36;
+    --line:rgba(255,255,255,0.08);
+    --text:#ECEEF2;
+    --muted:#8D96A5;
+    --green:#4FAE7C;
+    --green-dim:rgba(79,174,124,0.15);
+    --amber:#E3A542;
+    --amber-dim:rgba(227,165,66,0.15);
+    --red:#D8604F;
+    --red-dim:rgba(216,96,79,0.15);
+    --gold:#D9B24C;
+    --silver:#B9C0CC;
+    --bronze:#C08552;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;}
+
+  /* ---------- Header ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg, var(--bg) 85%, transparent);
+    padding:22px 28px 10px;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px;
+    flex-wrap:wrap;
+    border-bottom:1px solid var(--line);
+    backdrop-filter:blur(6px);
+  }
+  .brand{display:flex; align-items:center; gap:14px;}
+  .brand-mark{
+    width:40px;height:40px;border-radius:10px;
+    background:var(--surface2); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk'; font-weight:700; font-size:15px; color:var(--green);
+  }
+  .brand h1{font-size:19px; margin:0; font-weight:600; letter-spacing:.2px;}
+  .brand p{margin:2px 0 0; font-size:12.5px; color:var(--muted);}
+
+  .sync-panel{display:flex; align-items:center; gap:12px;}
+  .lights{display:flex; gap:5px; padding:6px 10px; background:var(--surface); border:1px solid var(--line); border-radius:20px;}
+  .light{width:9px;height:9px;border-radius:50%; background:#333; transition:all .3s;}
+  .light.on-green{background:var(--green); box-shadow:0 0 8px var(--green);}
+  .light.on-amber{background:var(--amber); box-shadow:0 0 8px var(--amber); animation:pulse 1s infinite;}
+  .light.on-red{background:var(--red); box-shadow:0 0 8px var(--red);}
+  @keyframes pulse{0%,100%{opacity:1} 50%{opacity:.35}}
+  .sync-text{font-size:11.5px; color:var(--muted); line-height:1.3;}
+  .sync-text b{color:var(--text); font-weight:500;}
+  #refreshBtn{
+    background:var(--surface2); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:8px 14px; font-size:12.5px; font-family:'Inter'; cursor:pointer;
+    display:flex; align-items:center; gap:6px; transition:.15s;
+  }
+  #refreshBtn:hover{border-color:var(--green); color:var(--green);}
+  #refreshBtn svg{width:13px;height:13px;}
+
+  /* ---------- Tabs ---------- */
+  nav.tabs{
+    display:flex; gap:4px; padding:14px 28px 0; border-bottom:1px solid var(--line);
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    background:none; border:none; color:var(--muted); font-family:'Inter'; font-size:13.5px; font-weight:500;
+    padding:10px 16px; cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  nav.tabs button.active{color:var(--text); border-bottom-color:var(--green);}
+  nav.tabs button:hover{color:var(--text);}
+
+  main{padding:26px 28px 60px; max-width:1180px; margin:0 auto;}
+  .view{display:none;}
+  .view.active{display:block; animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+
+  .view-head{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:18px; flex-wrap:wrap; gap:10px;}
+  .view-head h2{font-size:20px; margin:0 0 4px; font-weight:600;}
+  .view-head p{margin:0; font-size:13px; color:var(--muted); max-width:520px;}
+
+  input.search{
+    background:var(--surface); border:1px solid var(--line); color:var(--text);
+    padding:9px 12px; border-radius:8px; font-size:13px; font-family:'Inter'; width:230px;
+  }
+  input.search:focus{outline:none; border-color:var(--green);}
+
+  /* ---------- Stat strip ---------- */
+  .stat-strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:22px;}
+  .stat-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .stat-card .num{font-family:'Space Grotesk'; font-size:24px; font-weight:700;}
+  .stat-card .label{font-size:11.5px; color:var(--muted); margin-top:2px;}
+
+  /* ---------- Leaderboard ---------- */
+  .lb-row{
+    display:grid; grid-template-columns:34px 1fr 90px; align-items:center; gap:14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; margin-bottom:8px; cursor:pointer; transition:.15s;
+  }
+  .lb-row:hover{border-color:rgba(255,255,255,0.18);}
+  .lb-rank{font-family:'Space Grotesk'; font-weight:700; font-size:15px; color:var(--muted); text-align:center;}
+  .lb-rank.r1{color:var(--gold);} .lb-rank.r2{color:var(--silver);} .lb-rank.r3{color:var(--bronze);}
+  .lb-name{font-weight:600; font-size:14.5px;}
+  .lb-chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+  .chip{font-size:10.5px; padding:3px 8px; border-radius:20px; background:var(--surface2); color:var(--muted); font-family:'IBM Plex Mono';}
+  .lb-total{text-align:right; font-family:'Space Grotesk'; font-weight:700; font-size:19px;}
+  .lb-total span{font-size:10.5px; color:var(--muted); font-family:'Inter'; font-weight:400; display:block;}
+  .lb-detail{display:none; padding:0 16px 14px 64px; margin-top:-8px; background:var(--surface); border:1px solid var(--line); border-top:none; border-radius:0 0 12px 12px; margin-bottom:8px;}
+  .lb-detail.open{display:block;}
+  .lb-detail .inst{display:inline-block; font-size:11px; font-family:'IBM Plex Mono'; color:var(--muted); background:var(--surface2); padding:4px 8px; border-radius:6px; margin:4px 4px 0 0;}
+
+  /* ---------- Growth cards ---------- */
+  .grid-cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:12px;}
+  .member-card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px;}
+  .mc-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;}
+  .mc-name{font-weight:600; font-size:15px;}
+  .level-pill{
+    font-family:'IBM Plex Mono'; font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600;
+  }
+  .lvl-1{background:var(--green-dim); color:var(--green);}
+  .lvl-2{background:var(--amber-dim); color:var(--amber);}
+  .lvl-3{background:rgba(122,158,230,0.15); color:#7A9EE6;}
+  .lvl-4{background:var(--red-dim); color:var(--red);}
+  .mc-path{font-size:12px; color:var(--muted); margin-bottom:10px; min-height:16px;}
+  .progress-track{height:6px; background:var(--surface2); border-radius:4px; overflow:hidden; margin-bottom:10px;}
+  .progress-fill{height:100%; border-radius:4px;}
+  .mc-meta{display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-bottom:4px;}
+  .mc-meta b{color:var(--text); font-weight:500;}
+  .mc-note{font-size:11px; color:var(--muted); font-style:italic; margin-top:6px;}
+  .mc-history{margin-top:10px; padding-top:10px; border-top:1px solid var(--line); display:none;}
+  .mc-history.open{display:block;}
+  .mc-toggle{font-size:11px; color:var(--green); cursor:pointer; margin-top:8px; display:inline-block;}
+
+  /* ---------- Insights ---------- */
+  .insight-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;}
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px;}
+  .panel h3{margin:0 0 4px; font-size:14px; font-weight:600;}
+  .panel .sub{font-size:11.5px; color:var(--muted); margin:0 0 14px;}
+  .panel svg{display:block; margin:0 auto;}
+  .panel.full{grid-column:1 / -1;}
+
+  .empty, .loading, .err{padding:40px 20px; text-align:center; color:var(--muted); font-size:13px;}
+  .err{color:var(--red);}
+  .err code{background:var(--surface2); padding:2px 6px; border-radius:5px; font-size:11px;}
+
+  footer{padding:18px 28px 40px; text-align:center; font-size:11px; color:var(--muted);}
+
+  @media (max-width:720px){
+    .stat-strip{grid-template-columns:repeat(2,1fr);}
+    .insight-grid{grid-template-columns:1fr;}
+    .lb-row{grid-template-columns:26px 1fr 70px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">DTM</div>
+    <div>
+      <h1>Club Dashboard</h1>
+      <p>Jul – Dec &nbsp;·&nbsp; Roles, growth &amp; club insights</p>
+    </div>
+  </div>
+  <div class="sync-panel">
+    <div class="lights" title="Live sync status">
+      <div class="light" id="lightG"></div>
+      <div class="light" id="lightA"></div>
+      <div class="light" id="lightR"></div>
+    </div>
+    <div class="sync-text" id="syncText">Connecting…</div>
+    <span id="debugToggle" style="font-size:11px; color:var(--muted); text-decoration:underline; cursor:pointer;">details</span>
+    <button id="refreshBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Refresh
+    </button>
+  </div>
+</header>
+<pre id="debugPre" style="display:none; margin:0 28px; padding:12px 14px; background:#0D1015; border:1px solid var(--line); border-radius:8px; font-size:11px; color:#7DD3A8; max-height:160px; overflow:auto; white-space:pre-wrap;"></pre>
+
+<nav class="tabs">
+  <button class="active" data-view="leaderboard">Roles Leaderboard</button>
+  <button data-view="growth">Member Growth</button>
+  <button data-view="insights">Club Insights</button>
+</nav>
+
+<main>
+
+  <!-- LEADERBOARD -->
+  <section class="view active" id="view-leaderboard">
+    <div class="view-head">
+      <div>
+        <h2>Who's taken what</h2>
+        <p>Ranked by total meeting roles filled, Jul–Dec. Tap a row to see the full role history.</p>
+      </div>
+      <input class="search" id="lbSearch" placeholder="Search a member…">
+    </div>
+    <div class="stat-strip" id="lbStats"></div>
+    <div id="lbList"><div class="loading">Loading roles sheet…</div></div>
+  </section>
+
+  <!-- GROWTH -->
+  <section class="view" id="view-growth">
+    <div class="view-head">
+      <div>
+        <h2>Member growth</h2>
+        <p>Level, Pathway and Project standing for every member, cross-referenced with roles taken this period.</p>
+      </div>
+      <input class="search" id="growthSearch" placeholder="Search name, mentor, pathway…">
+    </div>
+    <div class="stat-strip" id="growthStats"></div>
+    <div class="grid-cards" id="growthList"><div class="loading">Loading overview sheet…</div></div>
+  </section>
+
+  <!-- INSIGHTS -->
+  <section class="view" id="view-insights">
+    <div class="view-head">
+      <div>
+        <h2>Club insights</h2>
+        <p>How the club as a whole is trending across the term.</p>
+      </div>
+    </div>
+    <div class="insight-grid" id="insightsGrid"><div class="loading">Crunching numbers…</div></div>
+  </section>
+
+</main>
+
+<footer>Synced directly from the club's Google Sheets · data updates automatically every 45s, or on demand</footer>
+
+<script>
+const ROLES_SHEET_ID = '1aPeS9HVxvYbOxB6bQMK-YAIrXHClEUUAAVxD-g24tKI';
+const OVERVIEW_SHEET_ID = '1p_pxAyxJad1g3n44n0Tk3-RPDVTNjIa1YzFCZ1ZS87U';
+const SHEET_TAB = 'Sheet1';
+
+let debugLog = [];
+function dlog(msg){
+  debugLog.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+  const pre = document.getElementById('debugPre');
+  if (pre) pre.textContent = debugLog.join('\n');
+}
+
+// Attempt 1: JSONP via <script> tag — bypasses CORS entirely, the standard way to read
+// a public Google Sheet from a static page.
+function loadSheetJSONP(id){
+  return new Promise((resolve, reject) => {
+    window.google = window.google || {};
+    window.google.visualization = window.google.visualization || {};
+    window.google.visualization.Query = window.google.visualization.Query || {};
+    window.google.visualization.Query.setResponse = (json) => {
+      cleanup();
+      try {
+        if (json.status === 'error') {
+          const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'Sheet returned an error';
+          dlog(`JSONP ${id}: sheet error — ${msg}`);
+          reject(new Error(msg));
+          return;
+        }
+        const colCount = json.table.cols.length;
+        const rows = json.table.rows.map(r => {
+          const out = [];
+          for (let i=0;i<colCount;i++){
+            const cell = r.c && r.c[i];
+            out.push(cell == null ? '' : String(cell.f !== undefined && cell.f !== null ? cell.f : (cell.v ?? '')).trim());
+          }
+          return out;
+        });
+        dlog(`JSONP ${id}: OK, ${rows.length} rows`);
+        resolve(rows);
+      } catch (e) { dlog(`JSONP ${id}: parse error — ${e.message}`); reject(e); }
+    };
+    const script = document.createElement('script');
+    script.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(SHEET_TAB)}&_=${Date.now()}`;
+    const timer = setTimeout(() => { dlog(`JSONP ${id}: timed out after 6s (no callback fired — likely blocked)`); reject(new Error('JSONP timeout')); cleanup(); }, 6000);
+    function cleanup(){ clearTimeout(timer); if (script.parentNode) script.parentNode.removeChild(script); }
+    script.onerror = () => { dlog(`JSONP ${id}: script failed to load (network/CSP block)`); reject(new Error('script load failed')); cleanup(); };
+    dlog(`JSONP ${id}: requesting…`);
+    document.body.appendChild(script);
+  });
+}
+
+// Attempt 2 (fallback): plain CSV fetch, in case JSONP is the thing being blocked.
+function parseCSV(text){
+  const rows = []; let row = [], field = '', q = false;
+  for (let i=0;i<text.length;i++){
+    const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ field+='"'; i++; } else q=false; } else field += c; }
+    else {
+      if (c === '"') q = true;
+      else if (c === ','){ row.push(field); field=''; }
+      else if (c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if (c === '\r'){}
+      else field += c;
+    }
+  }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.map(r => r.map(c => c.trim()));
+}
+async function loadSheetCSV(id){
+  dlog(`CSV fetch ${id}: requesting…`);
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_TAB)}&_=${Date.now()}`;
+  const res = await fetch(url, {cache:'no-store'});
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const text = await res.text();
+  const rows = parseCSV(text);
+  dlog(`CSV fetch ${id}: OK, ${rows.length} rows`);
+  return rows;
+}
+
+// Published CSV ("File > Share > Publish to web" in Google Sheets). Unlike the live-data
+// feeds, this returns every cell exactly as displayed — so "4(1)" stays "4(1)" — and it
+// allows cross-origin reads. It updates automatically when the sheet changes (a few minutes
+// of delay on Google's side). Falls through to the other methods if the sheet isn't published.
+async function loadSheetPublished(id){
+  dlog(`Published CSV ${id}: requesting…`);
+  const url = `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv&_=${Date.now()}`;
+  const res = await fetch(url, {cache:'no-store'});
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' (sheet not published to the web?)');
+  const text = await res.text();
+  if (/^\s*</.test(text)) throw new Error('got a web page instead of CSV (sheet not published to the web?)');
+  const rows = parseCSV(text);
+  dlog(`Published CSV ${id}: OK, ${rows.length} rows — exact cell text`);
+  return rows;
+}
+
+async function loadSheetRobust(id){
+  const errs = [];
+  for (const [label, fn] of [['Published', loadSheetPublished], ['CSV', loadSheetCSV], ['JSONP', loadSheetJSONP]]) {
+    try { return await fn(id); }
+    catch (e) { errs.push(`${label}: ${e.message}`); dlog(`${label} failed for ${id}: ${e.message}`); }
+  }
+  throw new Error(`All load methods failed for ${id}. ` + errs.join(' · '));
+}
+
+// Role columns are read from the sheet's own two header rows every time data loads, instead
+// of being hardcoded — so adding a new role column (anywhere, e.g. R through Y) or renaming
+// one is picked up automatically on the next sync, no code changes needed.
+const FRIENDLY_LABELS = {
+  'TMOD':'TMOD','TIMER':'Timer','AH-COUNTER':'Ah-Counter','GRAMMARIAN':'Grammarian',
+  'LISTENER':'Listener','RANDOM MASTER':'Random Master','TTM':'Table Topics Master','GE':'General Evaluator'
+};
+function titleCase(s){ return s.replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()); }
+
+let ROLE_COLS = [];      // built dynamically — see buildRoleSchema()
+let SPECIAL_COL = null;  // built dynamically — see buildRoleSchema()
+
+function buildRoleSchema(rows){
+  const groupRow = rows[0] || [];
+  const labelRow = rows[1] || [];
+  const maxCols = Math.max(groupRow.length, labelRow.length);
+  // Merged header cells (e.g. "SPEAKERS" spanning S1–S4) only carry text in their first
+  // cell once exported — forward-fill the blanks so every column knows its group.
+  let currentGroup = '';
+  const groups = [];
+  for (let i=0;i<maxCols;i++){
+    const g = (groupRow[i]||'').trim();
+    if (g) currentGroup = g;
+    groups[i] = currentGroup;
+  }
+  const roleCols = [];
+  let specialCol = null;
+  for (let i=1;i<maxCols;i++){
+    const rawLabel = (labelRow[i]||'').trim();
+    const ownGroupCell = (groupRow[i]||'').trim(); // text written directly on THIS column in row 1 (not inherited from a merge)
+    const group = groups[i] || '';
+    if (/special/i.test(group) || /special/i.test(rawLabel)){
+      if (specialCol === null) specialCol = i;
+      continue;
+    }
+    // Prefer the row-2 label. If it's blank but this exact column has its own row-1 text
+    // (i.e. a new single-column role added with only a top header, not a merged group),
+    // fall back to that instead of silently dropping the column.
+    const effectiveLabel = rawLabel || ownGroupCell;
+    if (!effectiveLabel) continue; // truly blank/unused column
+    let roleName;
+    if (/^S\d+$/i.test(effectiveLabel)) roleName = 'Speaker';
+    else if (/^E\d+$/i.test(effectiveLabel)) roleName = 'Evaluator';
+    else roleName = FRIENDLY_LABELS[effectiveLabel.toUpperCase()] || titleCase(effectiveLabel);
+    roleCols.push({i, key:effectiveLabel, label:roleName, group, roleName});
+  }
+  dlog(`Schema detected: ${roleCols.length} role columns [${roleCols.map(r=>r.roleName).join(', ')}]${specialCol!==null ? `, Special Role at col ${specialCol}` : ', no Special Role column found'}`);
+  return {roleCols, specialCol};
+}
+// Chip display order — the order roles first appear left-to-right in the sheet, deduplicated.
+function roleOrderFrom(roleCols){
+  const seen = [];
+  roleCols.forEach(rc => { if (!seen.includes(rc.roleName)) seen.push(rc.roleName); });
+  return seen;
+}
+
+function isBlank(v){ return !v || v === '-' || v.toLowerCase() === 'tbd'; }
+function normName(n){ return n.trim().toLowerCase().replace(/\s+/g,' '); }
+function firstTok(n){ return normName(n).split(' ')[0]; }
+
+// ---------- state ----------
+let rolesRows = [], overviewRows = [];
+let memberStats = {}; // name (as written in Roles sheet) -> {total, byGroup:{}, byRole:{}, instances:[]}
+let recognitions = {}; // name (as written in the Special Role column) -> [{meeting, tag}]
+let overviewMembers = []; // {name, level, project, pathway, mentor, notes, rolesKey}
+let meetingParticipation = []; // {meeting, filled, total}
+let roleDisplayOrder = []; // dynamic chip order, rebuilt each load
+
+function computeRoles(){
+  memberStats = {};
+  recognitions = {};
+  meetingParticipation = [];
+
+  const schema = buildRoleSchema(rolesRows);
+  ROLE_COLS = schema.roleCols;
+  SPECIAL_COL = schema.specialCol;
+  roleDisplayOrder = roleOrderFrom(ROLE_COLS);
+
+  const dataRows = rolesRows.slice(2); // skip 2 header rows
+  for (const r of dataRows){
+    const meetingNo = r[0];
+    if (isBlank(meetingNo)) continue;
+    let filled = 0;
+    for (const rc of ROLE_COLS){
+      const name = r[rc.i];
+      if (isBlank(name)) continue;
+      filled++;
+      if (!memberStats[name]) memberStats[name] = {total:0, byGroup:{}, byRole:{}, instances:[]};
+      memberStats[name].total++;
+      memberStats[name].byGroup[rc.group] = (memberStats[name].byGroup[rc.group] || 0) + 1;
+      memberStats[name].byRole[rc.roleName] = (memberStats[name].byRole[rc.roleName] || 0) + 1;
+      memberStats[name].instances.push({meeting:meetingNo, role:rc.label});
+    }
+    meetingParticipation.push({meeting:meetingNo, filled, total:ROLE_COLS.length});
+
+    // Special Role column, e.g. "MOT-Bharat" — a recognition, not a functional meeting role,
+    // so it's tracked separately and never counted toward role totals.
+    const spec = SPECIAL_COL !== null ? r[SPECIAL_COL] : '';
+    if (!isBlank(spec) && spec.includes('-')){
+      const [tag, ...rest] = spec.split('-');
+      const person = rest.join('-').trim();
+      if (person){
+        if (!recognitions[person]) recognitions[person] = [];
+        recognitions[person].push({meeting: meetingNo, tag: tag.trim()});
+      }
+    }
+  }
+  dlog(`Parsed ${dataRows.filter(r=>!isBlank(r[0])).length} meeting rows. Members with at least one role: ${Object.keys(memberStats).length}. Recognitions: ${Object.keys(recognitions).length}.`);
+}
+
+function computeOverview(){
+  overviewMembers = [];
+  const dataRows = overviewRows.slice(1);
+  for (const r of dataRows){
+    const name = r[1];
+    if (isBlank(name)) continue;
+    // Members with no Level/Project set yet haven't started their Pathway —
+    // default them to Level 1, Project 0 rather than dropping them from the counts.
+    const rawLevel = (r[2] || '').trim();
+    const rawProject = (r[3] || '').trim();
+    overviewMembers.push({
+      name,
+      level: isBlank(rawLevel) ? '1' : rawLevel,
+      project: isBlank(rawProject) ? '0' : rawProject,
+      started: !isBlank(rawLevel) || !isBlank(rawProject),
+      pathway: r[4] || '',
+      mentor: r[5] || '',
+      notes: r[7] || '',
+      rolesKey: null
+    });
+  }
+}
+
+// The two sheets don't always spell names the same way — the Roles sheet often uses just
+// a first name ("Vidhi") while Overview uses the full name ("Vidhi Jain"). This links each
+// Overview member to their Roles-sheet entry: exact match first, then falls back to
+// matching on first name. Ambiguous first-name matches (two members sharing one) are
+// logged to the debug panel rather than guessed at silently.
+function linkRolesToOverview(){
+  const rolesKeys = Object.keys(memberStats);
+  const exactIndex = {};
+  rolesKeys.forEach(k => { exactIndex[normName(k)] = k; });
+  const firstIndex = {};
+  rolesKeys.forEach(k => { const f = firstTok(k); (firstIndex[f] = firstIndex[f] || []).push(k); });
+
+  const recogKeys = Object.keys(recognitions);
+  const recogExactIndex = {};
+  recogKeys.forEach(k => { recogExactIndex[normName(k)] = k; });
+  const recogFirstIndex = {};
+  recogKeys.forEach(k => { const f = firstTok(k); (recogFirstIndex[f] = recogFirstIndex[f] || []).push(k); });
+
+  overviewMembers.forEach(m => {
+    const exact = exactIndex[normName(m.name)];
+    if (exact) { m.rolesKey = exact; }
+    else {
+      const candidates = firstIndex[firstTok(m.name)] || [];
+      if (candidates.length === 1) { m.rolesKey = candidates[0]; }
+      else if (candidates.length > 1) {
+        m.rolesKey = candidates[0];
+        dlog(`Name match ambiguous for "${m.name}": Roles sheet has [${candidates.join(', ')}] sharing that first name — used "${candidates[0]}". Use full names consistently in both sheets to fix.`);
+      } else { m.rolesKey = null; }
+    }
+
+    const recogExact = recogExactIndex[normName(m.name)];
+    let recogKey = recogExact || null;
+    if (!recogKey) {
+      const rc = recogFirstIndex[firstTok(m.name)] || [];
+      if (rc.length >= 1) recogKey = rc[0];
+    }
+    m.recognitions = recogKey ? recognitions[recogKey] : [];
+  });
+}
+
+// ---------- render: leaderboard ----------
+function renderLeaderboard(filter=''){
+  const el = document.getElementById('lbList');
+  const names = Object.keys(memberStats).sort((a,b) => memberStats[b].total - memberStats[a].total || a.localeCompare(b));
+  const filtered = names.filter(n => n.toLowerCase().includes(filter.toLowerCase()));
+
+  document.getElementById('lbStats').innerHTML = `
+    <div class="stat-card"><div class="num mono">${names.length}</div><div class="label">Members with roles</div></div>
+    <div class="stat-card"><div class="num mono">${meetingParticipation.length}</div><div class="label">Meetings logged</div></div>
+    <div class="stat-card"><div class="num mono">${meetingParticipation.reduce((s,m)=>s+m.filled,0)}</div><div class="label">Total roles filled</div></div>
+  `;
+
+  if (!filtered.length){ el.innerHTML = '<div class="empty">No members match that search.</div>'; return; }
+
+  el.innerHTML = filtered.map((name, idx) => {
+    const s = memberStats[name];
+    const rankClass = idx===0?'r1':idx===1?'r2':idx===2?'r3':'';
+    const chips = roleDisplayOrder.filter(r => s.byRole[r]).map(r => `<span class="chip">${r} × ${s.byRole[r]}</span>`).join('');
+    const insts = s.instances.map(i => `<span class="inst">M${i.meeting} · ${i.role}</span>`).join('');
+    return `
+      <div class="lb-row" data-idx="${idx}">
+        <div class="lb-rank ${rankClass}">${idx+1}</div>
+        <div>
+          <div class="lb-name">${name}</div>
+          <div class="lb-chips">${chips}</div>
+        </div>
+        <div class="lb-total">${s.total}<span>roles</span></div>
+      </div>
+      <div class="lb-detail" id="lbDetail-${idx}">${insts}</div>
+    `;
+  }).join('');
+
+  el.querySelectorAll('.lb-row').forEach(row => {
+    row.addEventListener('click', () => {
+      document.getElementById('lbDetail-' + row.dataset.idx).classList.toggle('open');
+    });
+  });
+}
+
+// ---------- render: growth ----------
+function levelClass(lvl){ return 'lvl-' + (['1','2','3','4'].includes(String(lvl).trim()) ? String(lvl).trim() : '1'); }
+function levelColor(lvl){
+  const l = String(lvl).trim();
+  return l==='1' ? 'var(--green)' : l==='2' ? 'var(--amber)' : l==='3' ? '#7A9EE6' : 'var(--red)';
+}
+
+function renderGrowth(filter=''){
+  const el = document.getElementById('growthList');
+  const f = filter.toLowerCase();
+  const list = overviewMembers
+    .filter(m => m.name.toLowerCase().includes(f) || m.mentor.toLowerCase().includes(f) || m.pathway.toLowerCase().includes(f))
+    .slice()
+    .sort((a,b) => {
+      const la = parseFloat(a.level) || 0, lb = parseFloat(b.level) || 0;
+      return lb - la || a.name.localeCompare(b.name);
+    });
+
+  const byLevel = {1:0,2:0,3:0,4:0};
+  overviewMembers.forEach(m => { const l = String(m.level).trim(); if (byLevel[l]!==undefined) byLevel[l]++; });
+  document.getElementById('growthStats').innerHTML = `
+    <div class="stat-card"><div class="num mono">${overviewMembers.length}</div><div class="label">Total members</div></div>
+    <div class="stat-card"><div class="num mono" style="color:var(--green)">${byLevel[1]}</div><div class="label">Level 1</div></div>
+    <div class="stat-card"><div class="num mono" style="color:#7A9EE6">${byLevel[2]+byLevel[3]}</div><div class="label">Level 2–3</div></div>
+    <div class="stat-card"><div class="num mono" style="color:var(--red)">${byLevel[4]}</div><div class="label">Level 4</div></div>
+  `;
+
+  if (!list.length){ el.innerHTML = '<div class="empty">No members match that search.</div>'; return; }
+
+  let lastLevelSeen = null;
+  el.innerHTML = list.map((m, idx) => {
+    const lvl = String(m.level).trim() || '1';
+    const pct = Math.min(100, (parseFloat(lvl)||1) / 4 * 100);
+    const rs = m.rolesKey ? memberStats[m.rolesKey] : null;
+    const rolesCount = rs ? rs.total : 0;
+    const insts = rs ? rs.instances.map(i => `<span class="inst" style="display:inline-block;font-size:10.5px;font-family:'IBM Plex Mono';color:var(--muted);background:var(--surface2);padding:3px 7px;border-radius:6px;margin:3px 3px 0 0;">M${i.meeting} · ${i.role}</span>`).join('') : '<span style="color:var(--muted);font-size:11px;">No roles logged this period</span>';
+    let sectionHeader = '';
+    if (lvl !== lastLevelSeen) {
+      sectionHeader = `<div style="grid-column:1/-1; font-family:'Space Grotesk'; font-weight:600; font-size:13px; color:${levelColor(lvl)}; margin:${lastLevelSeen===null?'0':'14px'} 0 -2px; text-transform:uppercase; letter-spacing:.4px;">Level ${lvl}</div>`;
+      lastLevelSeen = lvl;
+    }
+    return `
+      ${sectionHeader}
+      <div class="member-card">
+        <div class="mc-top">
+          <div class="mc-name">${m.name}</div>
+          <div class="level-pill ${levelClass(lvl)}">LVL ${lvl}</div>
+        </div>
+        <div class="mc-path">${m.started ? `${m.pathway || 'Pathway not set'} · Project ${m.project}` : '<span style="color:var(--muted)">Hasn\'t started their Pathway yet</span>'}</div>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%; background:${levelColor(lvl)}"></div></div>
+        <div class="mc-meta"><span>Mentor</span><b>${m.mentor || '—'}</b></div>
+        <div class="mc-meta"><span>Roles taken</span><b>${rolesCount}</b></div>
+        ${m.recognitions && m.recognitions.length ? `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:5px;">${m.recognitions.map(rg=>`<span class="chip" style="background:rgba(217,178,76,0.16); color:var(--gold);" title="Meeting ${rg.meeting}">🏅 ${rg.tag} · M${rg.meeting}</span>`).join('')}</div>` : ''}
+        ${m.notes ? `<div class="mc-note">${m.notes}</div>` : ''}
+        <span class="mc-toggle" data-idx="${idx}">View role history ▾</span>
+        <div class="mc-history" id="mcHist-${idx}">${insts}</div>
+      </div>
+    `;
+  }).join('');
+
+  el.querySelectorAll('.mc-toggle').forEach(t => {
+    t.addEventListener('click', () => document.getElementById('mcHist-' + t.dataset.idx).classList.toggle('open'));
+  });
+}
+
+// ---------- render: insights (plain SVG/CSS — no external chart library) ----------
+function vBarChart(labels, values, colors){
+  const max = Math.max(...values, 1);
+  return `<div style="display:flex; align-items:flex-end; gap:14px; height:170px;">
+    ${labels.map((l,i)=>`
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%;">
+        <div style="flex:1; display:flex; align-items:flex-end; width:100%; justify-content:center;">
+          <div style="width:56%; max-width:56px; height:${Math.max(values[i]/max*100,values[i]>0?4:0)}%; background:${colors[i]}; border-radius:6px 6px 0 0; transition:height .4s;"></div>
+        </div>
+        <div class="mono" style="font-size:13px; font-weight:600; margin-top:8px;">${values[i]}</div>
+        <div style="font-size:10.5px; color:var(--muted); margin-top:2px; text-align:center;">${l}</div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function hBarList(entries, color){
+  if (!entries.length) return '<div class="empty">Nothing to show yet.</div>';
+  const max = Math.max(...entries.map(e=>e[1]), 1);
+  return entries.map(([label,count]) => `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:11px;">
+      <div style="width:130px; flex-shrink:0; font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${label}">${label}</div>
+      <div style="flex:1; background:var(--surface2); border-radius:5px; height:10px; overflow:hidden;">
+        <div style="height:100%; width:${count/max*100}%; background:${color}; border-radius:5px; transition:width .4s;"></div>
+      </div>
+      <div class="mono" style="width:26px; text-align:right; font-size:12px;">${count}</div>
+    </div>
+  `).join('');
+}
+
+function lineChartSVG(labels, values, maxHint){
+  const w = 680, h = 190, padL = 30, padR = 14, padT = 16, padB = 26;
+  const max = Math.max(maxHint || 0, ...values, 1);
+  const n = Math.max(values.length - 1, 1);
+  const x = i => padL + (i * (w - padL - padR) / n);
+  const y = v => h - padB - (v / max) * (h - padT - padB);
+  const pts = values.map((v,i) => [x(i), y(v)]);
+  const line = pts.map(p => p.join(',')).join(' ');
+  const area = `${x(0)},${y(0)} ` + line + ` ${x(values.length-1)},${y(0)}`;
+  const gridLines = [0,0.5,1].map(f => {
+    const yy = padT + f*(h-padT-padB);
+    return `<line x1="${padL}" y1="${yy}" x2="${w-padR}" y2="${yy}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+  }).join('');
+  const dots = pts.map((p,i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="#4FAE7C"><title>${labels[i]}: ${values[i]}</title></circle>`).join('');
+  const labelsSvg = labels.map((l,i) => `<text x="${x(i)}" y="${h-8}" font-size="9.5" fill="#8D96A5" text-anchor="middle" font-family="IBM Plex Mono, monospace">${l}</text>`).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="190" preserveAspectRatio="xMidYMid meet">
+    ${gridLines}
+    <polygon points="${area}" fill="rgba(79,174,124,0.14)"/>
+    <polyline points="${line}" fill="none" stroke="#4FAE7C" stroke-width="2.5"/>
+    ${dots}${labelsSvg}
+  </svg>`;
+}
+
+function renderInsights(){
+  const grid = document.getElementById('insightsGrid');
+  grid.innerHTML = `
+    <div class="panel">
+      <h3>Level distribution</h3>
+      <p class="sub">Where members sit across the 4 Pathways levels</p>
+      <div id="chartLevel"></div>
+    </div>
+    <div class="panel">
+      <h3>Mentor load</h3>
+      <p class="sub">Mentees assigned per mentor</p>
+      <div id="chartMentor"></div>
+    </div>
+    <div class="panel full">
+      <h3>Pathway popularity</h3>
+      <p class="sub">Which Pathways members are choosing</p>
+      <div id="chartPathway"></div>
+    </div>
+  `;
+
+  const byLevel = {1:0,2:0,3:0,4:0};
+  overviewMembers.forEach(m => { const l = String(m.level).trim(); if (byLevel[l]!==undefined) byLevel[l]++; });
+  const byMentor = {};
+  overviewMembers.forEach(m => { if (!isBlank(m.mentor)) byMentor[m.mentor] = (byMentor[m.mentor]||0)+1; });
+  const byPathway = {};
+  overviewMembers.forEach(m => { if (!isBlank(m.pathway)) byPathway[m.pathway] = (byPathway[m.pathway]||0)+1; });
+
+  document.getElementById('chartLevel').innerHTML = vBarChart(
+    ['Level 1','Level 2','Level 3','Level 4'],
+    [byLevel[1],byLevel[2],byLevel[3],byLevel[4]],
+    ['#4FAE7C','#E3A542','#7A9EE6','#D8604F']
+  );
+
+  const mentorEntries = Object.entries(byMentor).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('chartMentor').innerHTML = hBarList(mentorEntries, '#4FAE7C');
+
+  const pathEntries = Object.entries(byPathway).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('chartPathway').innerHTML = hBarList(pathEntries, '#7A9EE6');
+
+}
+
+// ---------- sync / lifecycle ----------
+function setStatus(state, msg){
+  document.getElementById('lightG').classList.toggle('on-green', state==='ok');
+  document.getElementById('lightA').classList.toggle('on-amber', state==='syncing');
+  document.getElementById('lightR').classList.toggle('on-red', state==='error');
+  document.getElementById('syncText').innerHTML = msg;
+}
+
+async function loadAll(){
+  setStatus('syncing', 'Syncing…');
+  dlog('--- refresh started ---');
+
+  let rr, or_;
+  try {
+    rr = await loadSheetRobust(ROLES_SHEET_ID);
+    or_ = await loadSheetRobust(OVERVIEW_SHEET_ID);
+  } catch (err) {
+    console.error(err);
+    dlog('FETCH FAILED: ' + err.message);
+    setStatus('error', 'Sync failed');
+    ['lbList','growthList'].forEach(id => {
+      document.getElementById(id).innerHTML = `<div class="err">Couldn't reach a sheet.<br><code>${err.message}</code><br><br>Double check: (1) sharing is "Anyone with the link → Viewer", (2) the tab you're reading from is literally named <b>Sheet1</b> in each spreadsheet — rename the tab if not, and (3) you're online. Then hit refresh.</div>`;
+    });
+    return;
+  }
+
+  rolesRows = rr; overviewRows = or_;
+
+  try {
+    computeRoles(); computeOverview(); linkRolesToOverview();
+    renderLeaderboard(document.getElementById('lbSearch').value);
+    renderGrowth(document.getElementById('growthSearch').value);
+    renderInsights();
+    const t = new Date();
+    setStatus('ok', `Live &nbsp;·&nbsp; synced <b>${t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</b>`);
+  } catch (err) {
+    // Data loaded fine — this is a display bug, not a connectivity problem.
+    // Leave whatever already rendered on screen alone and just flag it clearly.
+    console.error(err);
+    dlog('RENDER FAILED (data was loaded OK): ' + err.message);
+    setStatus('error', 'Loaded data, but a display error occurred — see details');
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
+document.getElementById('debugToggle').addEventListener('click', () => {
+  const pre = document.getElementById('debugPre');
+  pre.style.display = pre.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('lbSearch').addEventListener('input', e => renderLeaderboard(e.target.value));
+document.getElementById('growthSearch').addEventListener('input', e => renderGrowth(e.target.value));
+
+document.querySelectorAll('nav.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-' + btn.dataset.view).classList.add('active');
+  });
+});
+
+loadAll();
+setInterval(loadAll, 45000);
+</script>
+</body>
+</html>
