@@ -582,7 +582,8 @@ function renderGrowth(filter=''){
   document.getElementById('growthStats').innerHTML = `
     <div class="stat-card"><div class="num mono">${overviewMembers.length}</div><div class="label">Total members</div></div>
     <div class="stat-card"><div class="num mono" style="color:var(--green)">${byLevel[1]}</div><div class="label">Level 1</div></div>
-    <div class="stat-card"><div class="num mono" style="color:#7A9EE6">${byLevel[2]+byLevel[3]}</div><div class="label">Level 2–3</div></div>
+    <div class="stat-card"><div class="num mono" style="color:var(--amber)">${byLevel[2]}</div><div class="label">Level 2</div></div>
+    <div class="stat-card"><div class="num mono" style="color:#7A9EE6">${byLevel[3]}</div><div class="label">Level 3</div></div>
     <div class="stat-card"><div class="num mono" style="color:var(--red)">${byLevel[4]}</div><div class="label">Level 4</div></div>
   `;
 
